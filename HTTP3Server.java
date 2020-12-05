@@ -150,18 +150,42 @@ public class HTTP1Server implements Runnable{
 					httpver = parse.nextToken();
 				// read the next line in client's request
 				String anotherLine = in.readLine();
+                boolean firsttime = true;
+                String encodedCookieVal;
 				if(anotherLine != null) {
 					parse = new StringTokenizer(anotherLine);
 					System.out.println("another line read.");
 				}
+                String checkModifiedDateStringVal = "";
 				if(parse.hasMoreTokens() && parse.nextToken().equals("If-Modified-Since:")) {
 					checkModified = true;
 					System.out.println("checked modified set to true on line 103");
+                    while(parse.hasMoreTokens()){
+                        checkModifiedDateStringVal = checkModifiedDateStringVal + parse.nextToken() + " ";
+                    }
 				}
-				String checkModifiedDateStringVal = "";
-				while(parse.hasMoreTokens()){
-					checkModifiedDateStringVal = checkModifiedDateStringVal + parse.nextToken() + " ";
-				}
+                else {
+                    parse = new StringTokenizer(anotherLine);
+                    if(parse.hasMoreTokens() && parse.nextToken().equals("Cookie:")) {
+                        firsttime = false;
+                        if(parse.hasMoreTokens()) 
+                            encodedCookieVal = parse.nextToken();
+                    }
+                    else {
+                        anotherLine = in.readLine();
+                        while(anotherLine != null) {
+                            parse = new StringTokenizer(anotherLine);
+                            if(parse.hasMoreTokens() && parse.nextToken().equals("Cookie:")) {
+                                firsttime = false;
+                                if(parse.hasMoreTokens()) 
+                                    encodedCookieVal = parse.nextToken();
+                                break;
+                            }
+                            anotherLine = in.readLine();
+                        } 
+                    }
+                }
+			
 				checkModifiedDateStringVal = checkModifiedDateStringVal.trim();
 				Date checkModifiedDateVal = null;
 				boolean correctDate = true;
@@ -266,7 +290,7 @@ public class HTTP1Server implements Runnable{
 							System.out.println("check modified is "+checkModified);
 							System.out.println("correct date is "+correctDate);
 
-							if(needToModify) {
+							/*if(needToModify) {
 								out.println("HTTP/1.0 "+OK);
 								out.println("Content-Type: " + getContentType(fileRequested) );
 								out.println("Content-Length: " + filereq.length());
@@ -306,7 +330,23 @@ public class HTTP1Server implements Runnable{
 								System.out.println("Expires: "+converter.format(nextYear));
 								dataOut.write(("HTTP/1.0 "+NOT_MOD+"\r\n").getBytes());
 								dataOut.write(("Expires: "+converter.format(nextYear)+"\r\n").getBytes());
-							}
+							} */
+                            if(firsttime) {
+                                byte[] payloadData = readFileData(filereq, (int) filereq.length());
+								System.out.println(payloadData);
+
+								dataOut.write(("HTTP/1.0 "+OK+"\r\n").getBytes());
+								dataOut.write(("Content-Type: "+getContentType(fileRequested)+"\r\n").getBytes());
+                                dataOut.write(("Set-Cookie: lasttime="+encodedDateTime+"\r\n").getBytes());
+                            }
+                            else {
+                                filereq = new File("index-seen.html");
+                                byte[] payloadData = readFileData(filereq, (int) filereq.length());
+								System.out.println(payloadData);
+                                dataOut.write(("HTTP/1.0 "+OK+"\r\n").getBytes());
+								dataOut.write(("Content-Type: "+getContentType(fileRequested)+"\r\n").getBytes());
+                                dataOut.write(("Set-Cookie: lasttime="+encodedDateTime+"\r\n").getBytes());
+                            }
 						}
 					} else {
 						out.println("HTTP/1.0 "+FILE_NOT_FOUND);
