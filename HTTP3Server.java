@@ -12,7 +12,182 @@ import java.nio.file.Paths;
 
 // Each Client Connection will be managed in a dedicated Thread
 public class HTTP1Server implements Runnable{
+
+//code to be used for cookies; will need to gut orginal server1 code
+//read all lines of input
+public String ReadAllLines(InputStream inputStream) throws IOException{
+  char c;
+  //string builder allows you to essentially build a string
+  //need to import Class StringBuilder to use(under java.lang maybe just use java.lang.* when importing(?))
+  //see link for more on StringBuilder and its methods: https://docs.oracle.com/javase/7/docs/api/java/lang/StringBuilder.html
+  StringBuilder result =  new StringBuilder();
+  //System.out.println("reading chars:");
+  do{
+    c=(char)inputStream.read();
+    result.append((char)c);
+  }while(inputStream.available>0);
+  //System.out.println("got string: %s:\n", result.toString());
+  return result.toString();
+}
+
+//check that the date and time are valid
+public boolean isValidDate(String dateStr){
+  LocalDate date=null;
+  try{
+    //see where myFormatObj is used in AcceptConnections for my thoughts on it and what we'll need to do to use it
+    date=LocalDate.parse(dateStr, this.myFormatObj);
+  }catch(DateTimeParseException e){
+    //e.printStackTrace();
+    System.out.printf("date %s is not a valid date \n", dateStr);
+    return false:
+  }
+  System.out.printf("date %s is valid\n", dateStr);
+  return true;
+ }
+
+//main loop that accepts connections from the client; this function calls the other helper methods within it and does what we're looking for with the cookies
+int AcceptConnections(){
+
+   String allLines;
+   HttpRequestParser parsedRequest;
+   Hashtable<String, String> headers;
+   String cookie, cookieName, cookieVal, cookieDecoded;
+   String[] cookieArray;
+   
+   boolean keepGoing;
+   boolean foundCookie;
+   
+   try(ServerSocket serverSocket = new ServerSocket(port)){
+   
+    System.out.println("Server is listening on port "+port);
+    keepGoing=true;
+    while(keepGoing==true){
+      Socket socket=ServerSocket.accept();
+      try{
+        socket.setSoTimeout(100000);
+       }
+       catch(SocketException e){
+        System.out.println("Failed to set timeout");
+        System.out.println(e.getMessage()));
+        return -1;
+        }
+        //some debugging output
+        System.out.println("New client connected");
+        LocalDateTime myDateObj = LocalDateTime.now();
+        //was never shown myFormatObj but it's probably an object created to be used to format the date
+        //can create myFormatObj in the manner shown in encoding/decoding example of project description
+        // link that explains how the format() method works: https://www.javatpoint.com/java-string-format
+        String formattedDate = myDateObj.format(this.myFormatObj);
+        //System.out.printf("formatted date+time %s \n", formattedDate);
+        
+        //will need to use code from encoding/decoding example in project description
+        String encodedDateTime=URLEncoder.encode(formattedDate, "UTF-8");
+        //System.out.printf("URL encoded date-time %s \n", encodedDateTime);
+        
+        String decodedDateTime=URLDecoder.decode(encodedDateTime, "UTF-8");
+        //System.out.println("URL decoded date-time %s \n", decodedDateTime);
+        
+        //get the input and output streams for the socket
+        OutputStream output = socket.getOutputStream();
+        InputStream input = socket.getInputStream();
+        
+        //use a printwriter so we can use print statements to the client
+        PrintWriter writer = new PrintWriter(output, true);
+        //prof. said httprequestparser() will return headers & bodies in a data struct
+        //this is not a method that can be imported; it will need to be coded
+        //found an example of this at the following link in the second answer: https://stackoverflow.com/questions/13255622/parsing-raw-http-request
+        parsedRequest = new HttpRequestParser();
+        
+        //get all the lines of input from the client as one long String
+        allLines=this.ReadAllLines(input);
+        
+        //parse the request
+        try{
+          //parseRequest is from the HttpParser class in the other java file
+          parsedRequest.parseRequest(allLines);//external parse function
+        }catch (IOException e){
+          System.out.printf("Malformed HTTP request \n");
+          writer.flush();
+          writer.close();
+          continue;//go back to the top of the main accept loop
+        }
+        //find cookies
+        //check if cookie name/value matches the name value we are looking for
+        foundCookie=false;
+        cookieDecoded="";
+        headers=parsedRequest._requestHeaders;//get HTTP headers as a hash table
+        Set<String> keys = headers.keySet();
+        for(String key: keys){
+          //some debugging code to print the HTTP headers
+          System.out.printf("Header value of key: %s: val is %s\n", key, headers.get(key));
+          
+          if(key.equals("Cookie")){
+            //get the name and value of the cookies
+            //if the name is correct, get the date
+            cookie=headers.get(key);
+            System.out.printf("Got cookie:%s\n", headers.get(key));
+            //need a nested loop to split multiple cookies per line
+            //split the variable/value pair within the line
+            
+            cookieArray=cookie.split("=");
+            
+            if(cookieArray.length != 2){
+              continue;
+            }else{
+              cookieName=cookieArray[0].trim(); cookieVal=cookieArray[1].trim();
+            }
+            System.out.printf("got cookie name: %s : val: %s \n", cookieName, cookieVal);
+            
+            //try to parse the cookie header
+            if(cookieName.equals("lasttime")==true){
+              //parse the cookie value
+              try{
+                cookieDecoded=URLDecoder.decode(cookieVal, "UTF-8");
+                System.out.printf("cookie decoded is %s \n", cookieDecoded);
+                //check if date is valid
+                if(isValidDate(cookieDecoded)){
+                  foundCookie=true;
+                  System.out.printf("found valid date %s\n", cookieDecoded);
+                }
+               }
+               catch(Exception e){
+                System.out.printf("decoding cookie value failed\n");
+                foundCookie=false;//not needed, just a reminder
+                }
+               }
+              }
+             }
+             
+             //send the response out the socket, choosing which one depending on if we had the cookie
+             //create temporary vaiable to out the header just for this response
+             
+             String headerOutputString_send=headerOutputString.replace("%LASTTIME%", encodedDateTime);
+              if(foundCookie==true){
+              
+                headerOutputString_send=headerOutputString_send.replace("%CONTENTLEN%", String.valueOf(oldUserContentString.length()));
+                String oldUserContentString_send=oldUserContentString.replace("%LASTVISIT%", cookieDecoded);
+                writer.printf("%s", headerOutputString_send);
+                writer.printf("\r\n");
+                writer.printf("%s", oldUserContentString_send);
+              }else{
+                headerOutputString_send=headerOutputString_send.replace("%CONTENTLEN%", String.valueOf(newUserContentString.length()));
+                writer.printf("%s", headerOutputString_send);
+                writer.printf("\r\n");
+                writer.printf("%s", newUserContentString);
+              }
+              
+              //close the socket properly
+                writer.flush();
+                writer.close();
+                socket.close();
+              }
+             }catch(IOException ex){
+                System.out.println("I?O error: "+ex.getMessage());
+             }
+           return 1;
+          }
 	
+	//start of server 1 code needs to be gutted in order to work with code for cookies
 	static final File WEB_ROOT = new File(".");
 	static final String FILE_NOT_FOUND = "404 Not Found";
 	static final String HTTP_NOT_SUPPORTED = "505 HTTP Version Not Supported";
@@ -255,56 +430,7 @@ public class HTTP1Server implements Runnable{
 						System.out.printf("URL decoded date-time %s \n", decodedDateTime);
 
 
-	                    //find cookies
-				        //check if cookie name/value matches the name value we are looking for
-						foundCookie=false;
-						cookieDecoded="";
-				        headers=parsedRequest._requestHeaders;//get HTTP headers as a hash table
-				        Set<String> keys = headers.keySet();
-				        for(String key: keys){
-				          //some debugging code to print the HTTP headers
-				        	System.out.printf("Header value of key: %s: val is %s\n", key, headers.get(key));
-
-				        	if(key.equals("Cookie")){
-				            //get the name and value of the cookies
-				            //if the name is correct, get the date
-				        		cookie=headers.get(key);
-				        		System.out.printf("Got cookie:%s\n", headers.get(key));
-				            //need a nested loop to split multiple cookies per line
-				            //split the variable/value pair within the line
-
-				        		cookieArray=cookie.split("=");
-
-				        		if(cookieArray.length < 2){
-				        			continue;
-				        		}else{
-				        			int i = 0;
-				        			while (i * 2 + 1 < cookieArray.length) {
-				        				cookieName=cookieArray[i * 2].trim(); cookieVal=cookieArray[i * 2 + 1].trim();
-				        				System.out.printf("got cookie name: %s : val: %s \n", cookieName, cookieVal);
-				        				//try to parse the cookie header
-						        		if(cookieName.equals("lasttime")==true){
-						              //parse the cookie value
-						        			try{
-						        				cookieDecoded=URLDecoder.decode(cookieVal, "UTF-8");
-						        				System.out.printf("cookie decoded is %s \n", cookieDecoded);
-						                //check if date is valid
-						        				if(isValidDate(cookieDecoded)){
-						        					foundCookie=true;
-						        					System.out.printf("found valid date %s\n", cookieDecoded);
-						        				}
-						        			}
-						        			catch(Exception e){
-						        				System.out.printf("decoding cookie value failed\n");
-						                		foundCookie=false;//not needed, just a reminder
-						            		}
-						        		}
-						        		i++;
-				        			}
-				        			
-				        		}
-				   	 		}
-						}
+	                   
 
 
 
