@@ -154,42 +154,42 @@ public class HTTP1Server implements Runnable{
 					httpver = parse.nextToken();
 				// read the next line in client's request
 				String anotherLine = in.readLine();
-                boolean firsttime = true;
-                String encodedCookieVal;
+				boolean firsttime = true;
+				String encodedCookieVal;
 				if(anotherLine != null) {
 					parse = new StringTokenizer(anotherLine);
 					System.out.println("another line read.");
 				}
-                String checkModifiedDateStringVal = "";
+				String checkModifiedDateStringVal = "";
 				if(parse.hasMoreTokens() && parse.nextToken().equals("If-Modified-Since:")) {
 					checkModified = true;
 					System.out.println("checked modified set to true on line 103");
-                    while(parse.hasMoreTokens()){
-                        checkModifiedDateStringVal = checkModifiedDateStringVal + parse.nextToken() + " ";
-                    }
+					while(parse.hasMoreTokens()){
+						checkModifiedDateStringVal = checkModifiedDateStringVal + parse.nextToken() + " ";
+					}
 				}
-                else {
-                    parse = new StringTokenizer(anotherLine);
-                    if(parse.hasMoreTokens() && parse.nextToken().equals("Cookie:")) {
-                        firsttime = false;
-                        if(parse.hasMoreTokens()) 
-                            encodedCookieVal = parse.nextToken();
-                    }
-                    else {
-                        anotherLine = in.readLine();
-                        while(anotherLine != null) {
-                            parse = new StringTokenizer(anotherLine);
-                            if(parse.hasMoreTokens() && parse.nextToken().equals("Cookie:")) {
-                                firsttime = false;
-                                if(parse.hasMoreTokens()) 
-                                    encodedCookieVal = parse.nextToken();
-                                break;
-                            }
-                            anotherLine = in.readLine();
-                        } 
-                    }
-                }
-			
+				else {
+					parse = new StringTokenizer(anotherLine);
+					if(parse.hasMoreTokens() && parse.nextToken().equals("Cookie:")) {
+						firsttime = false;
+						if(parse.hasMoreTokens()) 
+							encodedCookieVal = parse.nextToken();
+					}
+					else {
+						anotherLine = in.readLine();
+						while(anotherLine != null) {
+							parse = new StringTokenizer(anotherLine);
+							if(parse.hasMoreTokens() && parse.nextToken().equals("Cookie:")) {
+								firsttime = false;
+								if(parse.hasMoreTokens()) 
+									encodedCookieVal = parse.nextToken();
+								break;
+							}
+							anotherLine = in.readLine();
+						} 
+					}
+				}
+
 				checkModifiedDateStringVal = checkModifiedDateStringVal.trim();
 				Date checkModifiedDateVal = null;
 				boolean correctDate = true;
@@ -223,12 +223,12 @@ public class HTTP1Server implements Runnable{
 					if(!httpver.equals("HTTP/1.0") && httpver.contains("HTTP/1.")){
 
 					//print error message for debugging
-					out.println("HTTP/1.0 " + HTTP_NOT_SUPPORTED);
+						out.println("HTTP/1.0 " + HTTP_NOT_SUPPORTED);
 					//send error message to client
-					dataOut.writeBytes("HTTP/1.0 " + HTTP_NOT_SUPPORTED);
+						dataOut.writeBytes("HTTP/1.0 " + HTTP_NOT_SUPPORTED);
 
 					//flush data output stream
-					dataOut.flush();
+						dataOut.flush();
 
 	//if httpver isn't http/1.0 or some higher 1. something version return Bad request
 					}else if(!httpver.equals("HTTP/1.0") && !httpver.contains("HTTP/1.")){
@@ -242,38 +242,93 @@ public class HTTP1Server implements Runnable{
 					//preform get and send message to client
 
 					// remove the / at the first character of the string. causes path recognition problem
-					fileRequested = fileRequested.substring(1, fileRequested.length());
+						fileRequested = fileRequested.substring(1, fileRequested.length());
 
-                    LocalDateTime myDateObj = LocalDateTime.now();
-                    DateTimeFormatter myFormatObj = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
-                    String formattedDate = myDateObj.format(myFormatObj);
+						LocalDateTime myDateObj = LocalDateTime.now();
+						DateTimeFormatter myFormatObj = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
+						String formattedDate = myDateObj.format(myFormatObj);
 
-                    String encodedDateTime = URLEncoder.encode(formattedDate, "UTF-8");
-                    System.out.printf("URL encoded date-time %s \n", encodedDateTime);
+						String encodedDateTime = URLEncoder.encode(formattedDate, "UTF-8");
+						System.out.printf("URL encoded date-time %s \n", encodedDateTime);
 
-                    String decodedDateTime = URLDecoder.decode(encodedDateTime, "UTF-8");
-                    System.out.printf("URL decoded date-time %s \n", decodedDateTime);
+						String decodedDateTime = URLDecoder.decode(encodedDateTime, "UTF-8");
+						System.out.printf("URL decoded date-time %s \n", decodedDateTime);
+
+
+	                    //find cookies
+				        //check if cookie name/value matches the name value we are looking for
+						foundCookie=false;
+						cookieDecoded="";
+				        headers=parsedRequest._requestHeaders;//get HTTP headers as a hash table
+				        Set<String> keys = headers.keySet();
+				        for(String key: keys){
+				          //some debugging code to print the HTTP headers
+				        	System.out.printf("Header value of key: %s: val is %s\n", key, headers.get(key));
+
+				        	if(key.equals("Cookie")){
+				            //get the name and value of the cookies
+				            //if the name is correct, get the date
+				        		cookie=headers.get(key);
+				        		System.out.printf("Got cookie:%s\n", headers.get(key));
+				            //need a nested loop to split multiple cookies per line
+				            //split the variable/value pair within the line
+
+				        		cookieArray=cookie.split("=");
+
+				        		if(cookieArray.length < 2){
+				        			continue;
+				        		}else{
+				        			int i = 0;
+				        			while (i * 2 + 1 < cookieArray.length) {
+				        				cookieName=cookieArray[i * 2].trim(); cookieVal=cookieArray[i * 2 + 1].trim();
+				        				System.out.printf("got cookie name: %s : val: %s \n", cookieName, cookieVal);
+				        				//try to parse the cookie header
+						        		if(cookieName.equals("lasttime")==true){
+						              //parse the cookie value
+						        			try{
+						        				cookieDecoded=URLDecoder.decode(cookieVal, "UTF-8");
+						        				System.out.printf("cookie decoded is %s \n", cookieDecoded);
+						                //check if date is valid
+						        				if(isValidDate(cookieDecoded)){
+						        					foundCookie=true;
+						        					System.out.printf("found valid date %s\n", cookieDecoded);
+						        				}
+						        			}
+						        			catch(Exception e){
+						        				System.out.printf("decoding cookie value failed\n");
+						                		foundCookie=false;//not needed, just a reminder
+						            		}
+						        		}
+						        		i++;
+				        			}
+				        			
+				        		}
+				   	 		}
+						}
+
+
+
 
 					//first turn fileRequested into a file
-					File filereq = new File(fileRequested);
-					System.out.println("File requested text: "+fileRequested);
+			File filereq = new File(fileRequested);
+			System.out.println("File requested text: "+fileRequested);
 
-					if(filereq.exists()) {
+			if(filereq.exists()) {
 
-						if(!(filereq.canRead())) {
-							out.println("HTTP/1.0 "+FORBIDDEN);
-							dataOut.writeBytes("HTTP/1.0 "+FORBIDDEN);
-						}
-						else {
+				if(!(filereq.canRead())) {
+					out.println("HTTP/1.0 "+FORBIDDEN);
+					dataOut.writeBytes("HTTP/1.0 "+FORBIDDEN);
+				}
+				else {
 							//get when file was last modified
-							long lastmod=filereq.lastModified();
+					long lastmod=filereq.lastModified();
 							//convert to last mod date
-							Date datemod=new Date(lastmod);
+					Date datemod=new Date(lastmod);
 							//creating DateFormat for converting time from local timezone to GMT
-							DateFormat converter = new SimpleDateFormat("E, dd MMM yyyy HH:mm:ss z");
+					DateFormat converter = new SimpleDateFormat("E, dd MMM yyyy HH:mm:ss z");
 							//getting GMT timezone, you can get any timezone e.g. UTC
-							converter.setTimeZone(TimeZone.getTimeZone("GMT"));
-							Calendar cal = Calendar.getInstance();
+					converter.setTimeZone(TimeZone.getTimeZone("GMT"));
+					Calendar cal = Calendar.getInstance();
 							cal.add(Calendar.YEAR, 1); // to get previous year add -1
 							Date nextYear = cal.getTime();
 
@@ -335,22 +390,22 @@ public class HTTP1Server implements Runnable{
 								dataOut.write(("HTTP/1.0 "+NOT_MOD+"\r\n").getBytes());
 								dataOut.write(("Expires: "+converter.format(nextYear)+"\r\n").getBytes());
 							} */
-                            if(firsttime) {
-                                byte[] payloadData = readFileData(filereq, (int) filereq.length());
+							if(firsttime) {
+								byte[] payloadData = readFileData(filereq, (int) filereq.length());
 								System.out.println(payloadData);
 
 								dataOut.write(("HTTP/1.0 "+OK+"\r\n").getBytes());
 								dataOut.write(("Content-Type: "+getContentType(fileRequested)+"\r\n").getBytes());
-                                dataOut.write(("Set-Cookie: lasttime="+encodedDateTime+"\r\n").getBytes());
-                            }
-                            else {
-                                filereq = new File("index-seen.html");
-                                byte[] payloadData = readFileData(filereq, (int) filereq.length());
+								dataOut.write(("Set-Cookie: lasttime="+encodedDateTime+"\r\n").getBytes());
+							}
+							else {
+								filereq = new File("index-seen.html");
+								byte[] payloadData = readFileData(filereq, (int) filereq.length());
 								System.out.println(payloadData);
-                                dataOut.write(("HTTP/1.0 "+OK+"\r\n").getBytes());
+								dataOut.write(("HTTP/1.0 "+OK+"\r\n").getBytes());
 								dataOut.write(("Content-Type: "+getContentType(fileRequested)+"\r\n").getBytes());
-                                dataOut.write(("Set-Cookie: lasttime="+encodedDateTime+"\r\n").getBytes());
-                            }
+								dataOut.write(("Set-Cookie: lasttime="+encodedDateTime+"\r\n").getBytes());
+							}
 						}
 					} else {
 						out.println("HTTP/1.0 "+FILE_NOT_FOUND);
@@ -359,74 +414,74 @@ public class HTTP1Server implements Runnable{
 					}
 
 					//flush output
-						dataOut.flush();
+					dataOut.flush();
 
-					}
-	
 				}
-							dataOut.write(("HTTP/1.0 "+OK+"\r\n").getBytes());
-							dataOut.write(("Content-Type: text/html"+"\r\n").getBytes());
-							dataOut.write(("Content-Length: "+filereq.length()+"\r\n").getBytes());
+
+			}
+			dataOut.write(("HTTP/1.0 "+OK+"\r\n").getBytes());
+			dataOut.write(("Content-Type: text/html"+"\r\n").getBytes());
+			dataOut.write(("Content-Length: "+filereq.length()+"\r\n").getBytes());
 						/*	dataOut.write(("Last-Modified: "+converter.format(datemod)+"\r\n").getBytes());
-							dataOut.write(("Content-Encoding: identity\r\n").getBytes()); */
-							dataOut.write(("Allow: GET, POST, HEAD\r\n").getBytes());
-							dataOut.write(("Expires: "+converter.format(nextYear)+"\r\n").getBytes());
-							dataOut.write(("\r\n").getBytes());
-							dataOut.write(payloadData, 0, (int) filereq.length());
-						}
-					} else {
-						System.out.println("HTTP/1.0 "+FILE_NOT_FOUND);
-						dataOut.writeBytes("HTTP/1.0 "+FILE_NOT_FOUND);
-						System.out.println(filereq + " doesn't exist");
+						dataOut.write(("Content-Encoding: identity\r\n").getBytes()); */
+						dataOut.write(("Allow: GET, POST, HEAD\r\n").getBytes());
+						dataOut.write(("Expires: "+converter.format(nextYear)+"\r\n").getBytes());
+						dataOut.write(("\r\n").getBytes());
+						dataOut.write(payloadData, 0, (int) filereq.length());
 					}
+				} else {
+					System.out.println("HTTP/1.0 "+FILE_NOT_FOUND);
+					dataOut.writeBytes("HTTP/1.0 "+FILE_NOT_FOUND);
+					System.out.println(filereq + " doesn't exist");
+				}
 
 					//flush output
-						dataOut.flush();
+				dataOut.flush();
 
-					}
-					
-				
+			}
+
+
 
 	//if method is none of the above return 400 Bad Request
-				}else{
+		}else{
 					//error message print on server side for debugging
-					out.println("HTTP/1.0 "+ BAD_REQ);
+			out.println("HTTP/1.0 "+ BAD_REQ);
 
 					//send error message to client
-					dataOut.writeBytes("HTTP/1.0 " + BAD_REQ);
+			dataOut.writeBytes("HTTP/1.0 " + BAD_REQ);
 
 					//flush dataoutput stream
-					dataOut.flush();
-				}
+			dataOut.flush();
+		}
 
-			}
+	}
 
-			
-		} catch (FileNotFoundException fnfe) {
-			try {
-				fileNotFound(out, dataOut, fileRequested);
-			} catch (IOException ioe) {
-				System.err.println(FILE_NOT_FOUND +": " + ioe.getMessage());
-			}
-			
-		} catch (SocketTimeoutException e) {
-			try {
-				dataOut.write(("HTTP/1.0 " + REQ_TIMEOUT+"\r\n").getBytes());
-				dataOut.flush();
-			}
-			catch (IOException ioe) {
-				System.err.println(ioe);
-			}
-			System.err.println(REQ_TIMEOUT);
-			System.out.println("Time started: "+timestart);
-			System.out.println("Time ended: "+System.currentTimeMillis());
-		} catch (IOException ioe) {
-			System.err.println(INSERVERR + ": " + ioe);
-		} finally {
-			try {
-				in.close();
-				out.close();
-				dataOut.close();
+
+} catch (FileNotFoundException fnfe) {
+	try {
+		fileNotFound(out, dataOut, fileRequested);
+	} catch (IOException ioe) {
+		System.err.println(FILE_NOT_FOUND +": " + ioe.getMessage());
+	}
+
+} catch (SocketTimeoutException e) {
+	try {
+		dataOut.write(("HTTP/1.0 " + REQ_TIMEOUT+"\r\n").getBytes());
+		dataOut.flush();
+	}
+	catch (IOException ioe) {
+		System.err.println(ioe);
+	}
+	System.err.println(REQ_TIMEOUT);
+	System.out.println("Time started: "+timestart);
+	System.out.println("Time ended: "+System.currentTimeMillis());
+} catch (IOException ioe) {
+	System.err.println(INSERVERR + ": " + ioe);
+} finally {
+	try {
+		in.close();
+		out.close();
+		dataOut.close();
 				connect.close(); // we close socket connection
 			} catch (Exception e) {
 				System.err.println("Error closing stream : " + e.getMessage());
@@ -503,16 +558,16 @@ public class HTTP1Server implements Runnable{
 
 	//helper method to convert a file to a string; for use with index.html and index_seen.html; for more details/example refer to: https://howtodoinjava.com/java/io/java-read-file-to-string-examples/
 	private static String htmltostring(String filePath) {
-       
+
 		String content = "";
- 		try{
-            		content = new String ( Files.readAllBytes( Paths.get(filePath) ) );
-        	} catch (IOException e) {
+		try{
+			content = new String ( Files.readAllBytes( Paths.get(filePath) ) );
+		} catch (IOException e) {
 			
-           		 e.printStackTrace();
-       		}
- 
-        	return content;
-    }
+			e.printStackTrace();
+		}
+
+		return content;
+	}
 	
 }
