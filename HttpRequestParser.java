@@ -5,9 +5,9 @@ import java.util.Hashtable;
 
 public class HttpRequestParser{
 
-	private String _requestline;
-	private Hashtable<String, String> _requestHeaders;
-	private StringBuffer _messageBody;
+	public String _requestline;
+	public Hashtable<String, String> _requestHeaders;
+	public StringBuffer _messageBody;
 
 	public HttpRequestParser(){
 
@@ -53,7 +53,7 @@ public class HttpRequestParser{
 		_requestline=requestLine;
 	}
 
-	private void appendHeaderParameter(String header) throws HttpFormatException{
+	public void appendHeaderParameter(String header) throws HttpFormatException{
 
 		int idx=header.indexOf(":");
 
@@ -70,7 +70,7 @@ public class HttpRequestParser{
 		return _messageBody.toString();
 	}
 
-	private void appendMessageBody(String bodyLine){
+	public void appendMessageBody(String bodyLine){
 
 		_messageBody.append(bodyLine).append("\r\n");
 	}
