@@ -686,20 +686,4 @@ public void run() {
 		}
 	}
 
-  // helper method to convert a file to a string; for use with index.html and index_seen.html; for
-  // more details/example refer to:
-  // https://howtodoinjava.com/java/io/java-read-file-to-string-examples/
-  private static String htmltostring(String filePath) {
-
-		String content = "";
-		try{
-			content = new String ( Files.readAllBytes( Paths.get(filePath) ) );
-		} catch (IOException e) {
-			
-			e.printStackTrace();
-		}
-
-		return content;
-	}
-
 }
