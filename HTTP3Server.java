@@ -5,6 +5,10 @@ import java.lang.*;
 import java.text.*;
 import java.time.*;
 
+//need for converting file into string
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
 
 // Each Client Connection will be managed in a dedicated Thread
 public class HTTP1Server implements Runnable{
@@ -496,5 +500,19 @@ public class HTTP1Server implements Runnable{
 			System.out.println("File " + fileRequested + " not found");
 		}
 	}
+
+	//helper method to convert a file to a string; for use with index.html and index_seen.html; for more details/example refer to: https://howtodoinjava.com/java/io/java-read-file-to-string-examples/
+	private static String htmltostring(String filePath) {
+       
+		String content = "";
+ 		try{
+            		content = new String ( Files.readAllBytes( Paths.get(filePath) ) );
+        	} catch (IOException e) {
+			
+           		 e.printStackTrace();
+       		}
+ 
+        	return content;
+    }
 	
 }
