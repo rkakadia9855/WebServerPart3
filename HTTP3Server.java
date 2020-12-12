@@ -9,313 +9,399 @@ import java.time.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
+public class HttpRequestParser{
+
+	private String _requestline;
+	private Hashtable<String, String> _requestHeaders;
+	private StringBuffer _messageBody;
+
+	public HttpRequestParser(){
+
+		_requestHeaders=new Hashtable<String, String>();
+		_messageBody=new StringBuffer();
+
+	}
+
+	//parse an HTTP request
+	public void parseRequest(String request) throws IOException, HttpFormatException{
+
+		BufferedReader reader = new BufferedReader(new StringReader(request));
+
+		setRequestLine(reader.readLine());
+
+		String header=reader.readLine();
+		while(header.length()>0){
+
+			appendHeaderParameter(header);
+			header=reader.readLine();
+		}
+
+		String bodyLine=reader.readLine();
+		while(bodyLine!=null){
+
+			appendMessageBody(bodyLine);
+			bodyLine=reader.readLine();
+		}
+
+	}
+
+	public String getRequestLine(){
+
+		return _requestedline;
+	}
+	
+	public void setRequestLine(String requestLine) throws HttpFormatException{
+
+		if(requestLine==null || requestLine.length()==0){
+
+			throw new HttpFormatException("Invalid Request-Line: "+requestLine);
+		}
+		_requestline=requestLine;
+	}
+
+	private void appendHeaderParameter(String header) throws HttpFormatException{
+
+		int idx=header.indexOf(":");
+
+		if(idx==-1){
+
+			throw new HttpFormatException("Invalid header parameter: "+header);
+		}
+
+		_requestHeaders.put(header.substring(0, idx), header.subsrting(idx+1, header.length()));
+	}
+
+	public String getMessageBody(){
+
+		return _messageBody.toString();
+	}
+
+	private void appendMessageBody(String bodyLine){
+
+		_messageBody.append(bodyLine).append("\r\n");
+	}
+
+//search through _requestHeaders for a specific header if found return headerName else it will return null
+	public String getHeaderParam(String headerName){
+
+		return _requestHeaders.get(headerName);
+
+	}
+}
+
+
 
 // Each Client Connection will be managed in a dedicated Thread
-public class HTTP1Server implements Runnable{
+public class HTTP3Server implements Runnable{
 
 //code to be used for cookies; will need to gut orginal server1 code
 //read all lines of input
-public String ReadAllLines(InputStream inputStream) throws IOException{
-  char c;
+	public String ReadAllLines(InputStream inputStream) throws IOException{
+		char c;
   //string builder allows you to essentially build a string
   //need to import Class StringBuilder to use(under java.lang maybe just use java.lang.* when importing(?))
   //see link for more on StringBuilder and its methods: https://docs.oracle.com/javase/7/docs/api/java/lang/StringBuilder.html
-  StringBuilder result =  new StringBuilder();
+		StringBuilder result =  new StringBuilder();
   //System.out.println("reading chars:");
-  do{
-    c=(char)inputStream.read();
-    result.append((char)c);
-  }while(inputStream.available>0);
+		do{
+			c=(char)inputStream.read();
+			result.append((char)c);
+		}while(inputStream.available>0);
   //System.out.println("got string: %s:\n", result.toString());
-  return result.toString();
-}
+		return result.toString();
+	}
 
 //check that the date and time are valid
-public boolean isValidDate(String dateStr){
-  LocalDate date=null;
-  try{
+	public boolean isValidDate(String dateStr){
+		LocalDate date=null;
+		try{
     //see where myFormatObj is used in AcceptConnections for my thoughts on it and what we'll need to do to use it
-    date=LocalDate.parse(dateStr, this.myFormatObj);
-  }catch(DateTimeParseException e){
+			date=LocalDate.parse(dateStr, this.myFormatObj);
+		}catch(DateTimeParseException e){
     //e.printStackTrace();
-    System.out.printf("date %s is not a valid date \n", dateStr);
-    return false:
-  }
-  System.out.printf("date %s is valid\n", dateStr);
-  return true;
- }
+			System.out.printf("date %s is not a valid date \n", dateStr);
+			return false:
+		}
+		System.out.printf("date %s is valid\n", dateStr);
+		return true;
+	}
 
 //main loop that accepts connections from the client; this function calls the other helper methods within it and does what we're looking for with the cookies
-int AcceptConnections(){
+	int AcceptConnections(){
 
-   String allLines;
-   HttpRequestParser parsedRequest;
-   Hashtable<String, String> headers;
-   String cookie, cookieName, cookieVal, cookieDecoded;
-   String[] cookieArray;
-   
-   boolean keepGoing;
-   boolean foundCookie;
-   
-   try(ServerSocket serverSocket = new ServerSocket(port)){
-   
-    System.out.println("Server is listening on port "+port);
-    keepGoing=true;
-    while(keepGoing==true){
-      Socket socket=ServerSocket.accept();
-      try{
-        socket.setSoTimeout(100000);
-       }
-       catch(SocketException e){
-        System.out.println("Failed to set timeout");
-        System.out.println(e.getMessage()));
-        return -1;
-        }
+		String allLines;
+		HttpRequestParser parsedRequest;
+		Hashtable<String, String> headers;
+		String cookie, cookieName, cookieVal, cookieDecoded;
+		String[] cookieArray;
+
+		boolean keepGoing;
+		boolean foundCookie;
+
+		try(ServerSocket serverSocket = new ServerSocket(port)){
+
+			System.out.println("Server is listening on port "+port);
+			keepGoing=true;
+			while(keepGoing==true){
+				Socket socket=ServerSocket.accept();
+				try{
+					socket.setSoTimeout(100000);
+				}
+				catch(SocketException e){
+					System.out.println("Failed to set timeout");
+					System.out.println(e.getMessage());
+					return -1;
+				}
         //some debugging output
-        System.out.println("New client connected");
-        LocalDateTime myDateObj = LocalDateTime.now();
+				System.out.println("New client connected");
+				LocalDateTime myDateObj = LocalDateTime.now();
         //was never shown myFormatObj but it's probably an object created to be used to format the date
         //can create myFormatObj in the manner shown in encoding/decoding example of project description
         // link that explains how the format() method works: https://www.javatpoint.com/java-string-format
-        String formattedDate = myDateObj.format(this.myFormatObj);
+				String formattedDate = myDateObj.format(this.myFormatObj);
         //System.out.printf("formatted date+time %s \n", formattedDate);
-        
+
         //will need to use code from encoding/decoding example in project description
-        String encodedDateTime=URLEncoder.encode(formattedDate, "UTF-8");
+				String encodedDateTime=URLEncoder.encode(formattedDate, "UTF-8");
         //System.out.printf("URL encoded date-time %s \n", encodedDateTime);
-        
-        String decodedDateTime=URLDecoder.decode(encodedDateTime, "UTF-8");
+
+				String decodedDateTime=URLDecoder.decode(encodedDateTime, "UTF-8");
         //System.out.println("URL decoded date-time %s \n", decodedDateTime);
-        
+
         //get the input and output streams for the socket
-        OutputStream output = socket.getOutputStream();
-        InputStream input = socket.getInputStream();
-        
+				OutputStream output = socket.getOutputStream();
+				InputStream input = socket.getInputStream();
+
         //use a printwriter so we can use print statements to the client
-        PrintWriter writer = new PrintWriter(output, true);
+				PrintWriter writer = new PrintWriter(output, true);
         //prof. said httprequestparser() will return headers & bodies in a data struct
         //this is not a method that can be imported; it will need to be coded
         //found an example of this at the following link in the second answer: https://stackoverflow.com/questions/13255622/parsing-raw-http-request
-        parsedRequest = new HttpRequestParser();
-        
+				parsedRequest = new HttpRequestParser();
+
         //get all the lines of input from the client as one long String
-        allLines=this.ReadAllLines(input);
-        
+				allLines=this.ReadAllLines(input);
+
         //parse the request
-        try{
+				try{
           //parseRequest is from the HttpParser class in the other java file
           parsedRequest.parseRequest(allLines);//external parse function
-        }catch (IOException e){
-          System.out.printf("Malformed HTTP request \n");
-          writer.flush();
-          writer.close();
+      }catch (IOException e){
+      	System.out.printf("Malformed HTTP request \n");
+      	writer.flush();
+      	writer.close();
           continue;//go back to the top of the main accept loop
-        }
+      }
         //find cookies
         //check if cookie name/value matches the name value we are looking for
-        foundCookie=false;
-        cookieDecoded="";
+      	foundCookie=false;
+      	cookieDecoded="";
         headers=parsedRequest._requestHeaders;//get HTTP headers as a hash table
         Set<String> keys = headers.keySet();
         for(String key: keys){
           //some debugging code to print the HTTP headers
-          System.out.printf("Header value of key: %s: val is %s\n", key, headers.get(key));
-          
-          if(key.equals("Cookie")){
+        	System.out.printf("Header value of key: %s: val is %s\n", key, headers.get(key));
+
+        	if(key.equals("Cookie")){
             //get the name and value of the cookies
             //if the name is correct, get the date
-            cookie=headers.get(key);
-            System.out.printf("Got cookie:%s\n", headers.get(key));
+        		cookie=headers.get(key);
+        		System.out.printf("Got cookie:%s\n", headers.get(key));
             //need a nested loop to split multiple cookies per line
             //split the variable/value pair within the line
-            
-            cookieArray=cookie.split("=");
-            
-            if(cookieArray.length != 2){
-              continue;
-            }else{
-              cookieName=cookieArray[0].trim(); cookieVal=cookieArray[1].trim();
-            }
-            System.out.printf("got cookie name: %s : val: %s \n", cookieName, cookieVal);
-            
-            //try to parse the cookie header
-            if(cookieName.equals("lasttime")==true){
-              //parse the cookie value
-              try{
-                cookieDecoded=URLDecoder.decode(cookieVal, "UTF-8");
-                System.out.printf("cookie decoded is %s \n", cookieDecoded);
-                //check if date is valid
-                if(isValidDate(cookieDecoded)){
-                  foundCookie=true;
-                  System.out.printf("found valid date %s\n", cookieDecoded);
-                }
-               }
-               catch(Exception e){
-                System.out.printf("decoding cookie value failed\n");
-                foundCookie=false;//not needed, just a reminder
-                }
-               }
-              }
-             }
-             
+
+        		cookieArray=cookie.split("=");
+
+        		if(cookieArray.length < 2){
+        			continue;
+        		}else{
+        			int i = 0;
+        			while (i * 2 + 1 < cookieArray.length) {
+        				cookieName=cookieArray[i * 2].trim(); cookieVal=cookieArray[i * 2 + 1].trim();
+        				System.out.printf("got cookie name: %s : val: %s \n", cookieName, cookieVal);
+
+		            //try to parse the cookie header
+        				if(cookieName.equals("lasttime")==true){
+		              //parse the cookie value
+        					try{
+        						cookieDecoded=URLDecoder.decode(cookieVal, "UTF-8");
+        						System.out.printf("cookie decoded is %s \n", cookieDecoded);
+		                //check if date is valid
+        						if(isValidDate(cookieDecoded)){
+        							foundCookie=true;
+        							System.out.printf("found valid date %s\n", cookieDecoded);
+        						}
+        					}
+        					catch(Exception e){
+        						System.out.printf("decoding cookie value failed\n");
+		                		foundCookie=false;//not needed, just a reminder
+		                	}
+		                }
+		                i++;
+		            }
+
+		        }
+		    }
+		}
+
              //send the response out the socket, choosing which one depending on if we had the cookie
              //create temporary vaiable to out the header just for this response
-             
-             String headerOutputString_send=headerOutputString.replace("%LASTTIME%", encodedDateTime);
-              if(foundCookie==true){
-              
-                headerOutputString_send=headerOutputString_send.replace("%CONTENTLEN%", String.valueOf(oldUserContentString.length()));
-                String oldUserContentString_send=oldUserContentString.replace("%LASTVISIT%", cookieDecoded);
-                writer.printf("%s", headerOutputString_send);
-                writer.printf("\r\n");
-                writer.printf("%s", oldUserContentString_send);
-              }else{
-                headerOutputString_send=headerOutputString_send.replace("%CONTENTLEN%", String.valueOf(newUserContentString.length()));
-                writer.printf("%s", headerOutputString_send);
-                writer.printf("\r\n");
-                writer.printf("%s", newUserContentString);
-              }
-              
+
+		String headerOutputString_send=headerOutputString.replace("%LASTTIME%", encodedDateTime);
+		if(foundCookie==true){
+
+			headerOutputString_send=headerOutputString_send.replace("%CONTENTLEN%", String.valueOf(oldUserContentString.length()));
+			String oldUserContentString_send=oldUserContentString.replace("%LASTVISIT%", cookieDecoded);
+			writer.printf("%s", headerOutputString_send);
+			writer.printf("\r\n");
+			writer.printf("%s", oldUserContentString_send);
+		}else{
+			headerOutputString_send=headerOutputString_send.replace("%CONTENTLEN%", String.valueOf(newUserContentString.length()));
+			writer.printf("%s", headerOutputString_send);
+			writer.printf("\r\n");
+			writer.printf("%s", newUserContentString);
+		}
+
               //close the socket properly
-                writer.flush();
-                writer.close();
-                socket.close();
-              }
-             }catch(IOException ex){
-                System.out.println("I?O error: "+ex.getMessage());
-             }
-           return 1;
-          }
-	
-	//start of server 1 code needs to be gutted in order to work with code for cookies
-	static final File WEB_ROOT = new File(".");
-	static final String FILE_NOT_FOUND = "404 Not Found";
-	static final String HTTP_NOT_SUPPORTED = "505 HTTP Version Not Supported";
-	static final String OK = "200 OK";
-	static final String NOT_MOD = "304 Not Modified";
-	static final String BAD_REQ = "400 Bad Request";
-	static final String FORBIDDEN = "403 Forbidden";
-	static final String NOT_ALLOWED = "405 Method Not Allowed"; 
-	static final String REQ_TIMEOUT = "408 Request Timeout";
-	static final String LENGTH_REQUIRED = "411 Length Required";
-	static final String INSERVERR = "500 Internal Server Error";
-	static final String NOTIMP = "501 Not Implemented";
-	static final String UNAVAILSERV = "503 Service Unavailable";
-	static final int TIMEOUT = 5000;
-	long timestart = 0;
-	int testNum = 0;
-	static int runningThreads = 0;
-	
-	// verbose mode
-	static final boolean verbose = true;
-	
-	// Client Connection via Socket Class
-	private Socket connect;
-	
-	public HTTP1Server(Socket c) {
-		connect = c;
+		writer.flush();
+		writer.close();
+		socket.close();
 	}
-	
-	public static void main(String[] args) {
-		try {
+}catch(IOException ex){
+	System.out.println("I?O error: "+ex.getMessage());
+}
+return 1;
+}
+
+	//start of server 1 code needs to be gutted in order to work with code for cookies
+static final File WEB_ROOT = new File(".");
+static final String FILE_NOT_FOUND = "404 Not Found";
+static final String HTTP_NOT_SUPPORTED = "505 HTTP Version Not Supported";
+static final String OK = "200 OK";
+static final String NOT_MOD = "304 Not Modified";
+static final String BAD_REQ = "400 Bad Request";
+static final String FORBIDDEN = "403 Forbidden";
+static final String NOT_ALLOWED = "405 Method Not Allowed"; 
+static final String REQ_TIMEOUT = "408 Request Timeout";
+static final String LENGTH_REQUIRED = "411 Length Required";
+static final String INSERVERR = "500 Internal Server Error";
+static final String NOTIMP = "501 Not Implemented";
+static final String UNAVAILSERV = "503 Service Unavailable";
+static final int TIMEOUT = 5000;
+long timestart = 0;
+int testNum = 0;
+static int runningThreads = 0;
+
+	// verbose mode
+static final boolean verbose = true;
+
+	// Client Connection via Socket Class
+private Socket connect;
+
+public HTTP1Server(Socket c) {
+	connect = c;
+}
+
+public static void main(String[] args) {
+	try {
 
 			//get port from command line arg and convert to a useable integer
-			int port=Integer.parseInt(args[0]);
+		int port=Integer.parseInt(args[0]);
 
-			ServerSocket serverConnect = new ServerSocket(port);
+		ServerSocket serverConnect = new ServerSocket(port);
 		//	serverConnect.setSoTimeout(TIMEOUT);
-			System.out.println("Server started.\nListening for connections on port : " + port + " ...\n");
-			
+		System.out.println("Server started.\nListening for connections on port : " + port + " ...\n");
+
 			// we listen until user halts server execution
-			while (true) {
-				HTTP1Server myServer = new HTTP1Server(serverConnect.accept());
-				
-				if (verbose) {
-					System.out.println("Connection opened. (" + new Date() + ")");
-				}
-				
+		while (true) {
+			HTTP1Server myServer = new HTTP1Server(serverConnect.accept());
+
+			if (verbose) {
+				System.out.println("Connection opened. (" + new Date() + ")");
+			}
+
 				// add first 5 threads into arraylist
-				ArrayList<Thread> threadList = new ArrayList<>();
-				for (int i = 0; i < 5; i++) {
-					Thread thread = new Thread(myServer);
-					threadList.add(thread);
-				}
+			ArrayList<Thread> threadList = new ArrayList<>();
+			for (int i = 0; i < 5; i++) {
+				Thread thread = new Thread(myServer);
+				threadList.add(thread);
+			}
 				//iterate arraylist to count for running threads, remove terminated extra threads if there are more than 5 threads
-				for (int i = 0; i < threadList.size(); i++) {
-					runningThreads = 0;
-					if (threadList.get(i).isAlive()) {
-						runningThreads++;
-					}
-					else {
-						if (i >= 5) {
-							try {
-								threadList.get(i).join();
-								threadList.remove(threadList.get(i));
-							}
-							catch (Exception e) {
-								System.err.println(e.getMessage());
-							}
-						}
-					}
-				}
-				//start threads
-				if (runningThreads < 5) {
-					for (Thread thread: threadList) {
-						if (!thread.isAlive()) {
-							thread.start();
-						}
-					}
-				}
-				else if (runningThreads < 50) {
-					Thread newThread = new Thread();
-					threadList.add(newThread);
-					newThread.start();
+			for (int i = 0; i < threadList.size(); i++) {
+				runningThreads = 0;
+				if (threadList.get(i).isAlive()) {
+					runningThreads++;
 				}
 				else {
-					DataOutputStream dataOut = new DataOutputStream(myServer.connect.getOutputStream());
-					dataOut.writeBytes("HTTP/1.0 " + UNAVAILSERV);
-					dataOut.flush();
-					dataOut.close();
-					myServer.connect.close();
+					if (i >= 5) {
+						try {
+							threadList.get(i).join();
+							threadList.remove(threadList.get(i));
+						}
+						catch (Exception e) {
+							System.err.println(e.getMessage());
+						}
+					}
 				}
-
 			}
-			
-		} catch (IOException e) {
-			System.err.println("Server Connection error : " + e.getMessage());
-		}
-	}
-
-	@Override
-	public void run() {
-		// we manage our particular client connection
-		BufferedReader in = null; PrintWriter out = null; DataOutputStream dataOut = null;
-		String fileRequested = null;
-		
-		try {
-			
-			timestart = System.currentTimeMillis();
-			//connect.setSoTimeout(TIMEOUT);
-			
-			// we read characters from the client via input stream on the socket
-			in = new BufferedReader(new InputStreamReader(connect.getInputStream()));
-			// we get character output stream to client (for headers)
-			out = new PrintWriter(connect.getOutputStream());
-			// create outputstream to send data to client
-			dataOut = new DataOutputStream(connect.getOutputStream());
-			boolean contentLengthPresent = false;
-			boolean contentTypePresent = false;
-			
-			// get first line of the request from the client
-			String input = in.readLine();
-			if (input == null) {
-				out.println("no client request");
-				dataOut.write(("HTTP/1.0 " + REQ_TIMEOUT+"\r\n").getBytes());
-				dataOut.flush();
+				//start threads
+			if (runningThreads < 5) {
+				for (Thread thread: threadList) {
+					if (!thread.isAlive()) {
+						thread.start();
+					}
+				}
+			}
+			else if (runningThreads < 50) {
+				Thread newThread = new Thread();
+				threadList.add(newThread);
+				newThread.start();
 			}
 			else {
+				DataOutputStream dataOut = new DataOutputStream(myServer.connect.getOutputStream());
+				dataOut.writeBytes("HTTP/1.0 " + UNAVAILSERV);
+				dataOut.flush();
+				dataOut.close();
+				myServer.connect.close();
+			}
+
+		}
+
+	} catch (IOException e) {
+		System.err.println("Server Connection error : " + e.getMessage());
+	}
+}
+
+@Override
+public void run() {
+		// we manage our particular client connection
+	BufferedReader in = null; PrintWriter out = null; DataOutputStream dataOut = null;
+	String fileRequested = null;
+
+	try {
+
+		timestart = System.currentTimeMillis();
+			//connect.setSoTimeout(TIMEOUT);
+
+			// we read characters from the client via input stream on the socket
+		in = new BufferedReader(new InputStreamReader(connect.getInputStream()));
+			// we get character output stream to client (for headers)
+		out = new PrintWriter(connect.getOutputStream());
+			// create outputstream to send data to client
+		dataOut = new DataOutputStream(connect.getOutputStream());
+		boolean contentLengthPresent = false;
+		boolean contentTypePresent = false;
+
+			// get first line of the request from the client
+		String input = in.readLine();
+		if (input == null) {
+			out.println("no client request");
+			dataOut.write(("HTTP/1.0 " + REQ_TIMEOUT+"\r\n").getBytes());
+			dataOut.flush();
+		}
+		else {
 				// we parse the request with a string tokenizer
-				StringTokenizer parse = new StringTokenizer(input);
+			StringTokenizer parse = new StringTokenizer(input);
 				//String method = parse.nextToken().toUpperCase(); 
 				String method = parse.nextToken();// we get the HTTP method of the client
 				System.out.println("Test number: "+testNum);
@@ -430,31 +516,31 @@ int AcceptConnections(){
 						System.out.printf("URL decoded date-time %s \n", decodedDateTime);
 
 
-	                   
+
 
 
 
 
 					//first turn fileRequested into a file
-			File filereq = new File(fileRequested);
-			System.out.println("File requested text: "+fileRequested);
+						File filereq = new File(fileRequested);
+						System.out.println("File requested text: "+fileRequested);
 
-			if(filereq.exists()) {
+						if(filereq.exists()) {
 
-				if(!(filereq.canRead())) {
-					out.println("HTTP/1.0 "+FORBIDDEN);
-					dataOut.writeBytes("HTTP/1.0 "+FORBIDDEN);
-				}
-				else {
+							if(!(filereq.canRead())) {
+								out.println("HTTP/1.0 "+FORBIDDEN);
+								dataOut.writeBytes("HTTP/1.0 "+FORBIDDEN);
+							}
+							else {
 							//get when file was last modified
-					long lastmod=filereq.lastModified();
+								long lastmod=filereq.lastModified();
 							//convert to last mod date
-					Date datemod=new Date(lastmod);
+								Date datemod=new Date(lastmod);
 							//creating DateFormat for converting time from local timezone to GMT
-					DateFormat converter = new SimpleDateFormat("E, dd MMM yyyy HH:mm:ss z");
+								DateFormat converter = new SimpleDateFormat("E, dd MMM yyyy HH:mm:ss z");
 							//getting GMT timezone, you can get any timezone e.g. UTC
-					converter.setTimeZone(TimeZone.getTimeZone("GMT"));
-					Calendar cal = Calendar.getInstance();
+								converter.setTimeZone(TimeZone.getTimeZone("GMT"));
+								Calendar cal = Calendar.getInstance();
 							cal.add(Calendar.YEAR, 1); // to get previous year add -1
 							Date nextYear = cal.getTime();
 
