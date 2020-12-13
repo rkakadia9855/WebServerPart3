@@ -2,6 +2,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.Hashtable;
+import java.net.http.*;
 
 public class HttpRequestParser{
 
@@ -17,7 +18,7 @@ public class HttpRequestParser{
 	}
 
 	//parse an HTTP request
-	public void parseRequest(String request) throws IOException, HttpFormatException{
+	public void parseRequest(String request) throws Exception, IOException{
 
 		BufferedReader reader = new BufferedReader(new StringReader(request));
 
@@ -41,28 +42,28 @@ public class HttpRequestParser{
 
 	public String getRequestLine(){
 
-		return _requestedline;
+		return _requestline;
 	}
 	
-	public void setRequestLine(String requestLine) throws HttpFormatException{
+	public void setRequestLine(String requestLine) throws Exception{
 
 		if(requestLine==null || requestLine.length()==0){
 
-			throw new HttpFormatException("Invalid Request-Line: "+requestLine);
+			throw new Exception("Invalid Request-Line: " + requestLine);
 		}
 		_requestline=requestLine;
 	}
 
-	public void appendHeaderParameter(String header) throws HttpFormatException{
+	public void appendHeaderParameter(String header) throws Exception{
 
 		int idx=header.indexOf(":");
 
 		if(idx==-1){
 
-			throw new HttpFormatException("Invalid header parameter: "+header);
+			throw new Exception("Invalid header parameter: " + header);
 		}
 
-		_requestHeaders.put(header.substring(0, idx), header.subsrting(idx+1, header.length()));
+		_requestHeaders.put(header.substring(0, idx), header.substring(idx+1, header.length()));
 	}
 
 	public String getMessageBody(){
