@@ -6,6 +6,7 @@ import java.util.*;
 import java.lang.*;
 import java.text.*;
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 
 
 // Each Client Connection will be managed in a dedicated Thread
@@ -22,6 +23,7 @@ public class PartialHTTP1Server implements Runnable{
 	static final String INSERVERR = "500 Internal Server Error";
 	static final String NOTIMP = "501 Not Implemented";
 	static final String UNAVAILSERV = "503 Service Unavailable";
+	static final String HTML="text/html";
 	static final int TIMEOUT = 5000;
 	long timestart = 0;
 	static int runningThreads = 0;
@@ -153,16 +155,31 @@ public class PartialHTTP1Server implements Runnable{
 					System.out.println("another line read.");
 				}
 				boolean cookiefound=false;
-				String[] cookievals;
+				//create arraylist to store cookies in case there are multiple cookies
+				ArrayList<String>cookies=new ArrayList<String>();
 				//check for cookies
 				if(parse.hasMoreTokens()&&parse.nextToken().equals("Cookie:")) {
 					
+					cookiefound=true;
+					//go through looking for cookies while there are still tokens
+					while(parse.hasMoreTokens()) {
 					//check if Cookie is lasttime
-					String cookie=parse.nextToken();
-					if(cookie.contains("lasttime")) {
-						cookiefound=true;
+						String cookie=parse.nextToken();
+						String cookiename;
+						String cookieval;
+						if(cookie.contains("lasttime")) {
+							cookiename=cookie.substring(0, cookie.indexOf("="));
+							cookies.add(cookiename);
+							cookieval=cookie.substring(cookie.indexOf("=")+1);
+							cookies.add(cookieval);
 						
-						
+						}else {
+							cookiename=cookie.substring(0, cookie.indexOf("="));
+							cookies.add(cookiename);
+							cookieval=cookie.substring(cookie.indexOf("=")+1);
+							cookies.add(cookieval);
+						}
+					
 					}
 					
 				}else if(parse.hasMoreTokens() && parse.nextToken().equals("If-Modified-Since:")) {
@@ -235,85 +252,52 @@ public class PartialHTTP1Server implements Runnable{
 							
 							if(cookiefound==true) {
 								
-								String cookieName, cookieVal, cookie, cookieDecoded;
-								//check if date is formatted properly
-								LocalDateTime myDateObj = LocalDateTime.now();
-								String formattedDate = myDateObj.format(this.myFormatObj);
-						        // System.out.printf("formatted date+time %s \n", formattedDate);
+								//check if cookies contains lasttime
+								if(cookies.contains("lasttime")) {
+									
+									//get the index of lasttime in the cookiesarraylist and then add 1 to get the cookie value
+									int index=cookies.indexOf("lasttime");
+									index=index+1;
+									String date=cookies.get(index);
+									String cookiedecoded="";
+									
+									//setup date decoder
+							        LocalDateTime myDateObj = LocalDateTime.now();
+							        DateTimeFormatter myFormatObj = DateTimeFormatter.ofPattern("YYYY-MM-DD HH:mm:ss");
+							        String formattedDate = myDateObj.format(myFormatObj);
+							        System.out.printf("Formatted date+time %s \n",formattedDate);
+							        
+							        String encodedDateTime = URLEncoder.encode(formattedDate, "UTF-8");
+							        System.out.printf("URL encoded date-time %s \n",encodedDateTime);
+							        
+							        String decodedDateTime = URLDecoder.decode(encodedDateTime, "UTF-8");
+							        System.out.printf("URL decoded date-time %s \n",decodedDateTime);
 
-						        // will need to use code from encoding/decoding example in project description
-						        String encodedDateTime = URLEncoder.encode(formattedDate, "UTF-8");
-						        // System.out.printf("URL encoded date-time %s \n", encodedDateTime);
+							        //decode date
+							        
+							        
+								}else {
+									//put set cookies into a string
+									String setcookies="";
+									for(String cookie:cookies) {
+										setcookies=setcookies.concat(cookie).concat(" ");
+									}
+									dataOut.write(("HTTP/1.0 "+OK+"\r\n").getBytes());
+									dataOut.write(("Content-Type: "+HTML+"\r\n").getBytes());
+									dataOut.write(("Content-Length: "+newuser.length()+"\r\n").getBytes());
+									dataOut.write(("Set-Cookie: "+setcookies+"\r\n").getBytes());
+									//dataOut.write(("Content-Encoding: identity\r\n").getBytes());
+									//dataOut.write(("Allow: GET, POST, HEAD\r\n").getBytes());
+									
+									dataOut.write(("\r\n").getBytes());
+									dataOut.write((newuser+"\r\n").getBytes());
+								}
 
-						        String decodedDateTime = URLDecoder.decode(encodedDateTime, "UTF-8");
-						        // System.out.println("URL decoded date-time %s \n", decodedDateTime);
-						        OutputStream output = socket.getOutputStream();
-						        InputStream input = socket.getInputStream();
-
-						        // use a printwriter so we can use print statements to the client
-						        PrintWriter writer = new PrintWriter(output, true);
-
-						        parsedRequest = new HttpRequestParser();
-						        allLines = this.ReadAllLines(input);
-						        try {
-						            parsedRequest.parseRequest(allLines);
-						          }  catch (Exception e) {
-							        System.out.printf(e.getMessage());
-							        writer.flush();
-							        writer.close();
-						          	continue;// go back to the top of the main accept loop
-						      }
-
-						      headers = parsedRequest._requestHeaders;
-						      Set<String> keys = headers.keySet();
-						      for (String key : keys) {
-						      	if (key.equals("Cookie")) {
-						      		cookie = headers.get(key);
-						      		cookievals = cookie.split("=");
-						      		if (cookievals.length < 2) {
-					                    continue;
-					                } else {
-					                    int i = 0;
-					                    while (i * 2 + 1 < cookievals.length) {
-					                        cookieName = cookievals[i * 2].trim();
-					                        cookieVal = cookievals[i * 2 + 1].trim();
-					                        System.out.printf("got cookie name: %s : val: %s \n", cookieName, cookieVal);
-
-					                // try to parse the cookie header
-					                        if (cookieName.equals("lasttime") == true) {
-					                  // parse the cookie value
-					                            try {
-					                                cookieDecoded = URLDecoder.decode(cookieVal, "UTF-8");
-					                                System.out.printf("cookie decoded is %s \n", cookieDecoded);
-					                    // check if date is valid
-					                                if (isValidDate(cookieDecoded)) {
-					                                    foundCookie = true;
-					                                    System.out.printf("found valid date %s\n", cookieDecoded);
-					                                }
-					                                // send the response out the socket, choosing which one depending on if we had the cookie
-					                                // create temporary vaiable to out the header just for this response
-					                                if (cookievals == true) {
-oldUSer
-					                                    String oldUserContentString_send = olduser.replace("%YEAR-%MONTH-%DAY %HOUR-%MINUTE-%SECOND", cookieDecoded);
-
-					                                    writer.printf("%s", oldUserContentString_send);
-					                                } else {
-
-					                                    writer.printf("%s", newuser);
-					                                }
-
-					                            } catch (Exception e) {
-					                                System.out.printf("decoding cookie value failed\n");
-					                }
-					            }
-					            i++;
-					        }
-
-					    }
-
-						      	}
-						      }
-														
+								
+								
+							
+								
+								
 							}
 						}
 					// remove the / at the first character of the string. causes path recognition problem
@@ -741,4 +725,4 @@ oldUSer
 	}
 	
 }
-			
+		
