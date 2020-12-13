@@ -235,8 +235,85 @@ public class PartialHTTP1Server implements Runnable{
 							
 							if(cookiefound==true) {
 								
+								String cookieName, cookieVal, cookie, cookieDecoded;
 								//check if date is formatted properly
-								
+								LocalDateTime myDateObj = LocalDateTime.now();
+								String formattedDate = myDateObj.format(this.myFormatObj);
+						        // System.out.printf("formatted date+time %s \n", formattedDate);
+
+						        // will need to use code from encoding/decoding example in project description
+						        String encodedDateTime = URLEncoder.encode(formattedDate, "UTF-8");
+						        // System.out.printf("URL encoded date-time %s \n", encodedDateTime);
+
+						        String decodedDateTime = URLDecoder.decode(encodedDateTime, "UTF-8");
+						        // System.out.println("URL decoded date-time %s \n", decodedDateTime);
+						        OutputStream output = socket.getOutputStream();
+						        InputStream input = socket.getInputStream();
+
+						        // use a printwriter so we can use print statements to the client
+						        PrintWriter writer = new PrintWriter(output, true);
+
+						        parsedRequest = new HttpRequestParser();
+						        allLines = this.ReadAllLines(input);
+						        try {
+						            parsedRequest.parseRequest(allLines);
+						          }  catch (Exception e) {
+							        System.out.printf(e.getMessage());
+							        writer.flush();
+							        writer.close();
+						          	continue;// go back to the top of the main accept loop
+						      }
+
+						      headers = parsedRequest._requestHeaders;
+						      Set<String> keys = headers.keySet();
+						      for (String key : keys) {
+						      	if (key.equals("Cookie")) {
+						      		cookie = headers.get(key);
+						      		cookievals = cookie.split("=");
+						      		if (cookievals.length < 2) {
+					                    continue;
+					                } else {
+					                    int i = 0;
+					                    while (i * 2 + 1 < cookievals.length) {
+					                        cookieName = cookievals[i * 2].trim();
+					                        cookieVal = cookievals[i * 2 + 1].trim();
+					                        System.out.printf("got cookie name: %s : val: %s \n", cookieName, cookieVal);
+
+					                // try to parse the cookie header
+					                        if (cookieName.equals("lasttime") == true) {
+					                  // parse the cookie value
+					                            try {
+					                                cookieDecoded = URLDecoder.decode(cookieVal, "UTF-8");
+					                                System.out.printf("cookie decoded is %s \n", cookieDecoded);
+					                    // check if date is valid
+					                                if (isValidDate(cookieDecoded)) {
+					                                    foundCookie = true;
+					                                    System.out.printf("found valid date %s\n", cookieDecoded);
+					                                }
+					                                // send the response out the socket, choosing which one depending on if we had the cookie
+					                                // create temporary vaiable to out the header just for this response
+					                                if (cookievals == true) {
+oldUSer
+					                                    String oldUserContentString_send = olduser.replace("%YEAR-%MONTH-%DAY %HOUR-%MINUTE-%SECOND", cookieDecoded);
+
+					                                    writer.printf("%s", oldUserContentString_send);
+					                                } else {
+
+					                                    writer.printf("%s", newuser);
+					                                }
+
+					                            } catch (Exception e) {
+					                                System.out.printf("decoding cookie value failed\n");
+					                }
+					            }
+					            i++;
+					        }
+
+					    }
+
+						      	}
+						      }
+														
 							}
 						}
 					// remove the / at the first character of the string. causes path recognition problem
