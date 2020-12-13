@@ -15,161 +15,139 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 // Each Client Connection will be managed in a dedicated Thread
-public class HTTP3Server implements Runnable {
+public class HTTP3Server {
 
-	// code to be used for cookies; will need to gut orginal server1 code
-	// read all lines of input
-	public String ReadAllLines(InputStream inputStream) throws IOException {
-		char c;
-		// string builder allows you to essentially build a string
-		// need to import Class StringBuilder to use(under java.lang maybe just use
-		// java.lang.* when
-		// importing(?))
-		// see link for more on StringBuilder and its methods:
-		// https://docs.oracle.com/javase/7/docs/api/java/lang/StringBuilder.html
-		StringBuilder result = new StringBuilder();
-		// System.out.println("reading chars:");
-		do {
-			c = (char) inputStream.read();
-			result.append((char) c);
-		} while (inputStream.available() > 0);
-		// System.out.println("got string: %s:\n", result.toString());
-		return result.toString();
-	}
+  DateTimeFormatter myFormatObj = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-	// check that the date and time are valid
-	public boolean isValidDate(String dateStr) {
-		LocalDate date = null;
-		try {
-			// see where myFormatObj is used in AcceptConnections for my thoughts on it and
-			// what we'll need to do to use it
-			date = LocalDate.parse(dateStr, this.myFormatObj);
-		} catch (DateTimeParseException e) {
-			// e.printStackTrace();
-			System.out.printf("date %s is not a valid date \n", dateStr);
-			return false;
-		}
-		System.out.printf("date %s is valid\n", dateStr);
-		return true;
-	}
+  // code to be used for cookies; will need to gut orginal server1 code
+  // read all lines of input
+  public String ReadAllLines(InputStream inputStream) throws IOException {
+    char c;
+    // string builder allows you to essentially build a string
+    // need to import Class StringBuilder to use(under java.lang maybe just use
+    // java.lang.* when
+    // importing(?))
+    // see link for more on StringBuilder and its methods:
+    // https://docs.oracle.com/javase/7/docs/api/java/lang/StringBuilder.html
+    StringBuilder result = new StringBuilder();
+    // System.out.println("reading chars:");
+    do {
+      c = (char) inputStream.read();
+      result.append((char) c);
+    } while (inputStream.available() > 0);
+    // System.out.println("got string: %s:\n", result.toString());
+    return result.toString();
+  }
 
-	// main loop that accepts connections from the client; this function calls the
-	// other helper
-	// methods within it and does what we're looking for with the cookies
-	public void run() {
-		updateRunningThreads(true);
-		String allLines = null;
-		HttpRequestParser parsedRequest;
-		Hashtable<String, String> headers;
-		String cookie, cookieName, cookieVal, cookieDecoded;
-		String[] cookieArray;
+  // check that the date and time are valid
+  public boolean isValidDate(String dateStr) {
+    LocalDate date = null;
+    try {
+      // see where myFormatObj is used in AcceptConnections for my thoughts on it and
+      // what we'll need to do to use it
+      date = LocalDate.parse(dateStr, this.myFormatObj);
+    } catch (DateTimeParseException e) {
+      // e.printStackTrace();
+      System.out.printf("date %s is not a valid date \n", dateStr);
+      return false;
+    }
+    System.out.printf("date %s is valid\n", dateStr);
+    return true;
+  }
 
-		boolean keepGoing;
-		boolean foundCookie;
+  // main loop that accepts connections from the client; this function calls the
+  // other helper
+  // methods within it and does what we're looking for with the cookies
+  int AcceptConnections(int port) {
 
-		// get html files index.html and index_seen.html and convert to strings
-		// assuming html files are in same directory
-		Path fileNamei = Path.of("index.html");
-		String newUserContentString = null;
-		try {
-			newUserContentString = Files.readString(fileNamei);
-		} catch (IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
+    String allLines;
+    HttpRequestParser parsedRequest;
+    Hashtable<String, String> headers;
+    String cookie, cookieName, cookieVal, cookieDecoded;
+    String[] cookieArray;
 
-		Path fileNameis = Path.of("index_seen.html");
-		String oldUserContentString = null;
-		try {
-			oldUserContentString = Files.readString(fileNameis);
-		} catch (IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
+    boolean keepGoing;
+    boolean foundCookie;
 
-		LocalDateTime myDateObj = LocalDateTime.now();
+    // get html files index.html and index_seen.html and convert to strings
+    // assuming html files are in same directory
+    Path fileNamei = Path.of("index.html");
+    String newUserContentString = "";
+    try {
+      newUserContentString = Files.readString(fileNamei);
+    } catch (IOException e1) {
+      // TODO Auto-generated catch block
+      e1.printStackTrace();
+    }
 
-		// was never shown myFormatObj but it's probably an object created to be used to
-		// format the
-		// date
-		// can create myFormatObj in the manner shown in encoding/decoding example of
-		// project
-		// description
-		// link that explains how the format() method works:
-		// https://www.javatpoint.com/java-string-format
-		String formattedDate = myDateObj.format(this.myFormatObj);
-		// System.out.printf("formatted date+time %s \n", formattedDate);
+    Path fileNameis = Path.of("index_seen.html");
+    String oldUserContentString = "";
+    try {
+      oldUserContentString = Files.readString(fileNameis);
+    } catch (IOException e1) {
+      // TODO Auto-generated catch block
+      e1.printStackTrace();
+    }
 
-		// will need to use code from encoding/decoding example in project description
-		String encodedDateTime = null;
-		try {
-			encodedDateTime = URLEncoder.encode(formattedDate, "UTF-8");
-		} catch (UnsupportedEncodingException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
-		// System.out.printf("URL encoded date-time %s \n", encodedDateTime);
+    try (ServerSocket serverSocket = new ServerSocket(port)) {
 
-		try {
-			String decodedDateTime = URLDecoder.decode(encodedDateTime, "UTF-8");
-		} catch (UnsupportedEncodingException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
-		// System.out.println("URL decoded date-time %s \n", decodedDateTime);
+      System.out.println("Server is listening on port " + port);
+      keepGoing = true;
+      while (keepGoing == true) {
+        Socket socket = serverSocket.accept();
+        try {
+          socket.setSoTimeout(100000);
+        } catch (SocketException e) {
+          System.out.println("Failed to set timeout");
+          System.out.println(e.getMessage());
+          return -1;
+        }
+        // some debugging output
+        System.out.println("New client connected");
+        LocalDateTime myDateObj = LocalDateTime.now();
 
-		// get the input and output streams for the socket
-		OutputStream output = null;
-		try {
-			output = this.connect.getOutputStream();
-		} catch (IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
-		InputStream input = null;
-		try {
-			input = this.connect.getInputStream();
-		} catch (IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
+        // was never shown myFormatObj but it's probably an object created to be used to
+        // format the
+        // date
+        // can create myFormatObj in the manner shown in encoding/decoding example of
+        // project
+        // description
+        // link that explains how the format() method works:
+        // https://www.javatpoint.com/java-string-format
+        String formattedDate = myDateObj.format(this.myFormatObj);
+        // System.out.printf("formatted date+time %s \n", formattedDate);
 
-		// use a printwriter so we can use print statements to the client
-		PrintWriter writer = new PrintWriter(output, true);
-		// prof. said httprequestparser() will return headers & bodies in a data struct
-		// this is not a method that can be imported; it will need to be coded
-		// found an example of this at the following link in the second answer:
-		// https://stackoverflow.com/questions/13255622/parsing-raw-http-request
-		parsedRequest = new HttpRequestParser();
+        // will need to use code from encoding/decoding example in project description
+        String encodedDateTime = URLEncoder.encode(formattedDate, "UTF-8");
+        // System.out.printf("URL encoded date-time %s \n", encodedDateTime);
 
-		// get all the lines of input from the client as one long String
-		try {
-			allLines = this.ReadAllLines(input);
-		} catch (IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
+        String decodedDateTime = URLDecoder.decode(encodedDateTime, "UTF-8");
+        // System.out.println("URL decoded date-time %s \n", decodedDateTime);
+
+        // get the input and output streams for the socket
+        OutputStream output = socket.getOutputStream();
+        InputStream input = socket.getInputStream();
+
+        // use a printwriter so we can use print statements to the client
+        PrintWriter writer = new PrintWriter(output, true);
+        // prof. said httprequestparser() will return headers & bodies in a data struct
+        // this is not a method that can be imported; it will need to be coded
+        // found an example of this at the following link in the second answer:
+        // https://stackoverflow.com/questions/13255622/parsing-raw-http-request
+        parsedRequest = new HttpRequestParser();
+
+        // get all the lines of input from the client as one long String
+        allLines = this.ReadAllLines(input);
 
         // parse the request
-                    try {
-		  // parseRequest is from the HttpParser class in the other java file
-		  try{
-		  	parsedRequest.parseRequest(allLines);// external parse function
-		  }
-		  catch (IOException e) {
-			System.out.printf("Malformed HTTP request \n");
-			writer.flush();
-			writer.close();
-			return;
-		  }
-		  catch(Exception e) {
-			  System.out.println(e.getMessage());
-		  }
-      } catch (Exception e) {
-        System.out.printf("Malformed HTTP request \n");
+          // parseRequest is from the HttpParser class in the other java file
+          try {
+            parsedRequest.parseRequest(allLines);
+          }  catch (Exception e) {
+        System.out.printf(e.getMessage());
         writer.flush();
-		writer.close();
-		return;
+        writer.close();
+          continue;// go back to the top of the main accept loop
       }
         // find cookies
         // check if cookie name/value matches the name value we are looking for
@@ -224,111 +202,79 @@ public class HTTP3Server implements Runnable {
 
                             } catch (Exception e) {
                                 System.out.printf("decoding cookie value failed\n");
-                    			foundCookie = false;// not needed, just a reminder
-                			}
-            			}
-            			i++;
-        			}
+                    foundCookie = false;// not needed, just a reminder
+                }
+            }
+            i++;
+        }
 
-    			}
-			}
-		}
+    }
+}
+}
 
 
 
-				// close the socket properly
-		writer.flush();
-		writer.close();
-		updateRunningThreads(false);
-	}
+        // close the socket properly
+writer.flush();
+writer.close();
+socket.close();
+}
+} catch (IOException ex) {
+    System.out.println("I/O error: " + ex.getMessage());
+}
+return 1;
+}
 
   // start of server 1 code needs to be gutted in order to work with code for cookies
-  static final File WEB_ROOT = new File(".");
-  static final String FILE_NOT_FOUND = "404 Not Found";
-  static final String HTTP_NOT_SUPPORTED = "505 HTTP Version Not Supported";
-  static final String OK = "200 OK";
-  static final String NOT_MOD = "304 Not Modified";
-  static final String BAD_REQ = "400 Bad Request";
-  static final String FORBIDDEN = "403 Forbidden";
-  static final String NOT_ALLOWED = "405 Method Not Allowed";
-  static final String REQ_TIMEOUT = "408 Request Timeout";
-  static final String LENGTH_REQUIRED = "411 Length Required";
-  static final String INSERVERR = "500 Internal Server Error";
-  static final String NOTIMP = "501 Not Implemented";
-  static final String UNAVAILSERV = "503 Service Unavailable";
-  static final int TIMEOUT = 5000;
-  long timestart = 0;
-  int testNum = 0;
-  static int runningThreads = 0;
-  DateTimeFormatter myFormatObj=DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+static final File WEB_ROOT = new File(".");
+static final String FILE_NOT_FOUND = "404 Not Found";
+static final String HTTP_NOT_SUPPORTED = "505 HTTP Version Not Supported";
+static final String OK = "200 OK";
+static final String NOT_MOD = "304 Not Modified";
+static final String BAD_REQ = "400 Bad Request";
+static final String FORBIDDEN = "403 Forbidden";
+static final String NOT_ALLOWED = "405 Method Not Allowed";
+static final String REQ_TIMEOUT = "408 Request Timeout";
+static final String LENGTH_REQUIRED = "411 Length Required";
+static final String INSERVERR = "500 Internal Server Error";
+static final String NOTIMP = "501 Not Implemented";
+static final String UNAVAILSERV = "503 Service Unavailable";
+static final int TIMEOUT = 5000;
+long timestart = 0;
+int testNum = 0;
+static int runningThreads = 0;
 
   // verbose mode
-  static final boolean verbose = true;
+static final boolean verbose = true;
 
   // Client Connection via Socket Class
-  private Socket connect;
+private Socket connect;
 
-  public HTTP3Server(Socket c) {
+public HTTP3Server(Socket c) {
     connect = c;
-  }
+}
 
-  public static synchronized void updateRunningThreads(boolean increase) {
-    if (increase)
-      runningThreads++;
-    else
-      runningThreads--;
-  }
+public HTTP3Server() {
+  // TODO Auto-generated constructor stub
+}
 
-  private static synchronized int getRunningThreads() {
+public static synchronized void updateRunningThreads(boolean increase) {
+    if(increase)
+        runningThreads++;
+    else    
+        runningThreads--;
+}
+
+private static synchronized int getRunningThreads() {
     return runningThreads;
-  }
+}
 
-  public static void main(String[] args) {
-    try {
-
-      // get port from command line arg and convert to a useable integer
-      int port = Integer.parseInt(args[0]);
-
-      ServerSocket serverConnect = new ServerSocket(port);
-      // serverConnect.setSoTimeout(TIMEOUT);
-      System.out.println("Server started.\nListening for connections on port : " + port + " ...\n");
-
-      ExecutorService execService = Executors.newCachedThreadPool();
-      ThreadPoolExecutor pool = (ThreadPoolExecutor) execService;
-      pool.setCorePoolSize(5);
-      pool.setMaximumPoolSize(50);
-      Thread thread;
-
-      // we listen until user halts server execution
-      while (true) {
-        Socket socket = serverConnect.accept();
-        try {
-            socket.setSoTimeout(100000);
-        } catch (SocketException e) {
-            System.out.println("Failed to set timeout");
-            System.out.println(e.getMessage());
-        }
-        HTTP3Server myServer = new HTTP3Server(serverConnect.accept());
-
-        if (verbose) {
-          System.out.println("Connection opened. (" + new Date() + ")");
-        }
-
-        if (getRunningThreads() < pool.getMaximumPoolSize()) {
-          execService.submit(thread = new Thread(myServer));
-        } else {
-          DataOutputStream dataOut = new DataOutputStream(myServer.connect.getOutputStream());
-          dataOut.writeBytes("HTTP/1.0 " + UNAVAILSERV);
-          dataOut.flush();
-          dataOut.close();
-          myServer.connect.close();
-        }
-      }
-
-    } catch (IOException e) {
-      System.err.println("Server Connection error : " + e.getMessage());
-    }
-  }
+public static void main(String[] args) {
+  int port = Integer.parseInt(args[0]);
+  int status;
+  HTTP3Server mainServer = new HTTP3Server();
+  status = mainServer.AcceptConnections(port);
+}
 
 private byte[] readFileData(File file, int fileLength) throws IOException {
     FileInputStream fileIn = null;
@@ -390,5 +336,4 @@ private void fileNotFound(PrintWriter out, OutputStream dataOut, String fileRequ
             System.out.println("File " + fileRequested + " not found");
         }
     }
-
 }
