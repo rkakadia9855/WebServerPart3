@@ -267,6 +267,8 @@ public class HTTP3Server implements Runnable{
                             String newuser=Files.readString(filenamei);
                             Path filenameis=Path.of("index_seen.html");
                             String olduser=Files.readString(filenameis);
+                            
+                            if(cookiefound) {
                                 
                                 //check if cookies contains lasttime
                                 if(cookies.contains("lasttime")) {
@@ -334,9 +336,23 @@ public class HTTP3Server implements Runnable{
                                             dataOut.write((oldUserContentString_send+"\r\n").getBytes());
                                         }
                                         else {
-                                          String setcookies="";
-                                          for(String cookie:cookies) {
-                                              setcookies=setcookies.concat(cookie).concat(" ");
+                                           //put set cookies into a string
+                                                          String setcookies="";
+                                          for(int i=0; i<cookies.size();i=i+2) {
+                                            //decode cookie value
+                                            String cookieval="";
+                                                  try{
+                                                        cookieval=URLDecoder.decode(cookies.get(i+1), "UTF-8");
+                                                        System.out.printf("cookie decoded is %s \n", cookieval);
+                                                        //check if date is valid
+                                                      
+                                                      }
+                                                      catch(Exception e){
+                                                        System.out.printf("decoding cookie value failed\n");
+                                                        
+                                                        }
+                                                  
+                                            setcookies=setcookies.concat(cookies.get(i)).concat("=").concat(cookieval).concat(",").concat(" ");
                                           }
                                           System.out.println("HTTP/1.0 "+OK+"\r\n");
                                           System.out.println("Content-Type: "+HTML+"\r\n");
@@ -357,6 +373,7 @@ public class HTTP3Server implements Runnable{
                                           
                                           dataOut.write(("\r\n").getBytes());
                                           dataOut.write((newuser+"\r\n").getBytes());
+                                        
                                         }
                                     } catch (Exception e) {
                                         System.out.printf("decoding cookie value failed\n");
@@ -366,8 +383,24 @@ public class HTTP3Server implements Runnable{
                                 }else {
                                     //put set cookies into a string
                                     String setcookies="";
+                                    int temp = 0;
+                                    boolean name = true;
                                     for(String cookie:cookies) {
-                                        setcookies=setcookies.concat(cookie).concat(" ");
+                                      if(name) {
+                                        if(temp != 0) {
+                                          System.out.println("set cookie: "+setcookies+". Adding &");
+                                          setcookies=setcookies.concat("&");
+                                        }
+                                        System.out.println("set cookie: "+setcookies+". Adding =");
+                                        setcookies=setcookies.concat(cookie).concat("=");
+                                        name = false;
+                                      }
+                                      else {
+                                        System.out.println("set cookie: "+setcookies+". Adding "+cookie);
+                                        setcookies=setcookies.concat(cookie);
+                                        name = true;
+                                      }
+                                      temp++;
                                     }
                                     System.out.println("HTTP/1.0 "+OK+"\r\n");
                                     System.out.println("Content-Type: "+HTML+"\r\n");
@@ -391,7 +424,44 @@ public class HTTP3Server implements Runnable{
                                     dataOut.write((newuser+"\r\n").getBytes());
                                 }
 
-                                
+                    }
+                            else {
+                            //No cookie found
+                              
+                              LocalDateTime myDateObj = LocalDateTime.now();
+                      //      DateTimeFormatter myFormatObj = DateTimeFormatter.ofPattern("YYYY-MM-DD HH:mm:ss");
+                              String formattedDate = myDateObj.format(myFormatObj);
+                              System.out.printf("Formatted date+time %s \n",formattedDate);
+                              
+                              String encodedDateTime = URLEncoder.encode(formattedDate, "UTF-8");
+                              System.out.printf("URL encoded date-time %s \n",encodedDateTime);
+                              
+                              String decodedDateTime = URLDecoder.decode(encodedDateTime, "UTF-8");
+                              System.out.printf("URL decoded date-time %s \n",decodedDateTime);
+                              
+                              String setcookies="lasttime="+encodedDateTime;
+
+                              System.out.println("HTTP/1.0 "+OK+"\r\n");
+                              System.out.println("Content-Type: "+HTML+"\r\n");
+                      //      dataOut.write(("Content-Length: "+newuser.length()+"\r\n").getBytes());
+                              System.out.println("Set-Cookie: "+setcookies+"\r\n");
+                              System.out.println("__________________PRINTING PAYLOAD First time___________");
+                              //dataOut.write(("Content-Encoding: identity\r\n").getBytes());
+                              //dataOut.write(("Allow: GET, POST, HEAD\r\n").getBytes());
+                              
+                              System.out.println("\r\n");
+                              System.out.println(newuser+"\r\n");
+                              
+                              dataOut.write(("HTTP/1.0 "+OK+"\r\n").getBytes());
+                              dataOut.write(("Content-Type: "+HTML+"\r\n").getBytes());
+                      //      dataOut.write(("Content-Length: "+newuser.length()+"\r\n").getBytes());
+                              dataOut.write(("Set-Cookie: "+setcookies+"\r\n").getBytes());
+                              //dataOut.write(("Content-Encoding: identity\r\n").getBytes());
+                              //dataOut.write(("Allow: GET, POST, HEAD\r\n").getBytes());
+                              
+                              dataOut.write(("\r\n").getBytes());
+                              dataOut.write((newuser+"\r\n").getBytes());
+                            }
                                 
                             
                                 
