@@ -274,7 +274,21 @@ public class PartialHTTP1Server implements Runnable{
 							        System.out.printf("URL decoded date-time %s \n",decodedDateTime);
 
 							        //decode date
-							        
+							        try {
+							        	cookiedecoded = URLDecoder.decode(date, "UTF-8");
+                                		System.out.printf("cookie decoded is %s \n", cookiedecoded);
+                                		if (isValidDate(cookiedecoded)) {
+                                			System.out.printf("found valid date %s\n", cookiedecoded);
+                                			String oldUserContentString_send = olduser.replace("YYYY-MM-DD HH:mm:ss", cookiedecoded);
+                                			out.printf("%s", oldUserContentString_send);
+                                		}
+                                		else {
+                                			out.printf("%s", newuser);
+                                		}
+							        } catch (Exception e) {
+							        	System.out.printf("decoding cookie value failed\n");
+							        }
+	        
 							        
 								}else {
 									//put set cookies into a string
