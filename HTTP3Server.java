@@ -50,7 +50,7 @@ public class HTTP3Server implements Runnable {
 		return true;
 	}
 
-  // main loop that accepts connections from the client; this function calls the other helper
+    // main loop that accepts connections from the client; this function calls the other helper
   // methods within it and does what we're looking for with the cookies
   int AcceptConnections() {
 
@@ -62,6 +62,14 @@ public class HTTP3Server implements Runnable {
 
     boolean keepGoing;
     boolean foundCookie;
+
+    //get html files index.html and index_seen.html and convert to strings
+	//assuming html files are in same directory
+     Path fileNamei = Path.of("index.html");
+     String newUserContentString = Files.readString(fileNamei);
+
+     Path fileNameis = Path.of("index_seen.html");
+     String oldUserContentString = Files.readString(fileNameis);
 
     try (ServerSocket serverSocket = new ServerSocket(port)) {
 
@@ -79,6 +87,7 @@ public class HTTP3Server implements Runnable {
         // some debugging output
         System.out.println("New client connected");
         LocalDateTime myDateObj = LocalDateTime.now();
+	DateTimeFormatter myFormatObj=DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"
         // was never shown myFormatObj but it's probably an object created to be used to format the
         // date
         // can create myFormatObj in the manner shown in encoding/decoding example of project
@@ -175,21 +184,17 @@ public class HTTP3Server implements Runnable {
         // send the response out the socket, choosing which one depending on if we had the cookie
         // create temporary vaiable to out the header just for this response
 
-        String headerOutputString_send = headerOutputString.replace("%LASTTIME%", encodedDateTime);
+        
         if (foundCookie == true) {
 
-          headerOutputString_send = headerOutputString_send.replace("%CONTENTLEN%",
-              String.valueOf(oldUserContentString.length()));
+          
           String oldUserContentString_send =
-              oldUserContentString.replace("%LASTVISIT%", cookieDecoded);
-          writer.printf("%s", headerOutputString_send);
-          writer.printf("\r\n");
+              oldUserContentString.replace("%YEAR-%MONTH-%DAY %HOUR-%MINUTE-%SECOND", cookieDecoded);
+         
           writer.printf("%s", oldUserContentString_send);
         } else {
-          headerOutputString_send = headerOutputString_send.replace("%CONTENTLEN%",
-              String.valueOf(newUserContentString.length()));
-          writer.printf("%s", headerOutputString_send);
-          writer.printf("\r\n");
+        
+
           writer.printf("%s", newUserContentString);
         }
 
@@ -199,7 +204,7 @@ public class HTTP3Server implements Runnable {
         socket.close();
       }
     } catch (IOException ex) {
-      System.out.println("I?O error: " + ex.getMessage());
+      System.out.println("I/O error: " + ex.getMessage());
     }
     return 1;
   }
