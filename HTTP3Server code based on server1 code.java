@@ -334,10 +334,24 @@ public class HTTP3Server implements Runnable{
                                             dataOut.write((oldUserContentString_send+"\r\n").getBytes());
                                         }
                                         else {
-                                          String setcookies="";
-                                          for(String cookie:cookies) {
-                                              setcookies=setcookies.concat(cookie).concat(" ");
-                                          }
+                                      //put set cookies into a string
+									String setcookies="";
+									for(int i=0; i<cookies.size();i=i+2) {
+										//decode cookie value
+										String cookieval="";
+								           try{
+								                cookieval=URLDecoder.decode(cookies.get(i+1), "UTF-8");
+								                System.out.printf("cookie decoded is %s \n", cookieval);
+								                //check if date is valid
+								              
+								               }
+								               catch(Exception e){
+								                System.out.printf("decoding cookie value failed\n");
+								                
+								                }
+								           
+										setcookies=setcookies.concat(cookies.get(i)).concat("=").concat(cookieval).concat(",").concat(" ");
+									}
                                           System.out.println("HTTP/1.0 "+OK+"\r\n");
                                           System.out.println("Content-Type: "+HTML+"\r\n");
                                   //      dataOut.write(("Content-Length: "+newuser.length()+"\r\n").getBytes());
